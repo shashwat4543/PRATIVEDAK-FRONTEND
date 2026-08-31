@@ -1,0 +1,6 @@
+{
+  "name": "MPLADS Anomaly & Fraud Register",
+  "description": "Public oversight and role-based audit dashboard for monitoring MPLADS fund allocation, expenditure, and algorithmically-flagged anomalies across India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
