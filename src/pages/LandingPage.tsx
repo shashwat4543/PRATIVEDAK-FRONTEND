@@ -87,14 +87,19 @@ export const LandingPage: React.FC = () => {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-25"></div>
 
         <div className="relative max-w-5xl mx-auto text-center space-y-5 sm:space-y-6">
-          <div className="inline-flex items-center space-x-2 bg-blue-900/60 border border-blue-500/30 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-blue-300">
+          <div className="inline-flex items-center space-x-2 bg-blue-900/60 border border-blue-500/30 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-blue-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Algorithmic Public Audit Engine</span>
+            <span>Prativedak • Algorithmic Public Audit Engine</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight">
-            MPLADS Anomaly &amp; Fraud Register
-          </h1>
+          <div className="space-y-2">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight">
+              Prativedak
+            </h1>
+            <p className="text-xs sm:text-sm md:text-base font-bold tracking-wider uppercase text-blue-300">
+              MPLADS Anomaly &amp; Fraud Register
+            </p>
+          </div>
 
           <p className="text-sm sm:text-lg text-slate-300 max-w-3xl mx-auto font-normal leading-relaxed">
             Independent, rule-based oversight of Members of Parliament Local Area Development Scheme funds.

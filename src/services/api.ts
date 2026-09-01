@@ -280,13 +280,17 @@ export const api = {
     const cached = getCached<AnomalyItem[]>(cacheKey);
     if (cached) return cached;
 
-    const data = await fetchWithColdStartCheck<AnomalyItem[] | PaginatedResponse<AnomalyItem>>(
-      `${API_BASE_URL}/api/mps/${mpId}/anomalies`
-    );
+    try {
+      const data = await fetchWithColdStartCheck<AnomalyItem[] | PaginatedResponse<AnomalyItem>>(
+        `${API_BASE_URL}/api/mps/${mpId}/anomalies`
+      );
 
-    const items = Array.isArray(data) ? data : data.content || data.items || [];
-    setCache(cacheKey, items);
-    return items;
+      const items = Array.isArray(data) ? data : data.content || data.items || [];
+      setCache(cacheKey, items);
+      return items;
+    } catch {
+      return [];
+    }
   },
 
   async getGlobalAnomalies(

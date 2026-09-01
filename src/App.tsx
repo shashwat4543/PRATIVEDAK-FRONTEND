@@ -64,11 +64,11 @@ const AppContent: React.FC = () => {
               <div className="flex items-center space-x-2 text-white">
                 <ShieldAlert className="w-5 h-5 text-amber-400" />
                 <span className="font-bold text-sm tracking-tight">
-                  MPLADS Anomaly &amp; Fraud Register
+                  Prativedak
                 </span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-md">
-                Independent public transparency and algorithmic audit dashboard for monitoring Members of Parliament Local Area Development Scheme fund utilization across 543 Lok Sabha and 245 Rajya Sabha seats.
+                Prativedak is an independent public transparency and algorithmic audit platform for monitoring Members of Parliament Local Area Development Scheme fund utilization across 543 Lok Sabha and 245 Rajya Sabha seats.
               </p>
               <div className="text-[11px] text-slate-500">
                 Powered by rule-based deterministic audit models • Zero black-box ML
@@ -155,7 +155,7 @@ const AppContent: React.FC = () => {
 
           <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
             <div>
-              &copy; {new Date().getFullYear()} MPLADS Anomaly Register. Open Data &amp; Transparency Initiative.
+              &copy; {new Date().getFullYear()} Prativedak. Open Data &amp; Transparency Initiative.
             </div>
             <div className="flex items-center space-x-2">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>

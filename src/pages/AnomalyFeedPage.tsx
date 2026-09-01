@@ -104,7 +104,7 @@ export const AnomalyFeedPage: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Flame className="w-4 h-4 text-orange-600" />
             <span className="text-xs font-bold uppercase tracking-wider text-orange-800">
-              National Audit Stream
+              Prativedak Audit Stream
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">

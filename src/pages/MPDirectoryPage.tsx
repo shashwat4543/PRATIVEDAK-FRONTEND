@@ -75,7 +75,7 @@ export const MPDirectoryPage: React.FC = () => {
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
             <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
-              Parliamentary Roster
+              Prativedak Parliamentary Roster
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">

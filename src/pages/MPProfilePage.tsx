@@ -1,16 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
 import {
+  AnomalyItem,
   FlaggedProjectItem,
   MPDashboardData,
 } from '../types';
-import {
-  FEATURED_MP_ID,
-  FEATURED_MP_NAME,
-  FEATURED_MP_CONSTITUENCY,
-  FEATURED_WORK_DESC,
-} from '../data/featuredCaseStudyData';
 import { RiskGauge } from '../components/RiskGauge';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { formatCompactINR, formatDate, formatINR, getRuleName } from '../utils/formatters';
@@ -31,13 +26,172 @@ import {
   Layers,
 } from 'lucide-react';
 
+interface AuditFindingData {
+  hasAnomalies: boolean;
+  title: string;
+  ruleBadge: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  description: string;
+  metrics: string[];
+}
+
+function generateAuditFinding(
+  dashboard: MPDashboardData,
+  anomalies: AnomalyItem[],
+  projects: FlaggedProjectItem[]
+): AuditFindingData {
+  if (!anomalies || anomalies.length === 0) {
+    return {
+      hasAnomalies: false,
+      title: 'Audit Finding: No Active Anomaly Flags',
+      ruleBadge: 'CLEAN_RECORD',
+      severity: 'LOW',
+      description: `No significant anomaly pattern detected for this MP. All ${dashboard.totalWorksCount || 0} registered works comply with scheme execution guidelines with no duplicate proposals or irregular allocation clusters.`,
+      metrics: [
+        '0 Active Anomaly Flags',
+        `${dashboard.totalWorksCount || 0} Registered Works`,
+        '0.0% Anomaly Rate',
+        'Verified Compliant',
+      ],
+    };
+  }
+
+  const anomaliesByRule: Record<string, AnomalyItem[]> = {};
+  for (const a of anomalies) {
+    if (!anomaliesByRule[a.ruleCode]) anomaliesByRule[a.ruleCode] = [];
+    anomaliesByRule[a.ruleCode].push(a);
+  }
+
+  const severityWeight: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+  const rules = Object.keys(anomaliesByRule).sort((rA, rB) => {
+    const listA = anomaliesByRule[rA];
+    const listB = anomaliesByRule[rB];
+    const maxSevA = Math.max(...listA.map((a) => severityWeight[a.severity] || 1));
+    const maxSevB = Math.max(...listB.map((a) => severityWeight[a.severity] || 1));
+    if (maxSevA !== maxSevB) return maxSevB - maxSevA;
+    return listB.length - listA.length;
+  });
+
+  const primaryRule = rules[0];
+  const primaryAnomalies = anomaliesByRule[primaryRule] || [];
+  const count = primaryAnomalies.length;
+  const totalWorks = dashboard.totalWorksCount || count;
+  const percentage = totalWorks > 0 ? ((count / totalWorks) * 100).toFixed(1) : '0.0';
+
+  if (primaryRule === 'DUPLICATE_WORK_PROPOSAL') {
+    const flaggedProj = projects.find(
+      (p) => p.flagged && p.anomalies?.some((a) => a.ruleCode === 'DUPLICATE_WORK_PROPOSAL')
+    )?.project;
+    const sampleTitle = flaggedProj?.title;
+    let ticketAmount = flaggedProj?.sanctionedAmount;
+
+    if (!ticketAmount) {
+      for (const a of primaryAnomalies) {
+        const match = a.description?.match(/₹\s*([0-9.]+)/);
+        if (match) {
+          ticketAmount = parseFloat(match[1]);
+          break;
+        }
+      }
+    }
+
+    const totalClusterVal = ticketAmount ? ticketAmount * count : null;
+
+    let desc = `${count} out of ${totalWorks} projects registered under MP ${dashboard.name} (${dashboard.constituency || 'Constituency'}, ${dashboard.state || 'State'}) have been flagged for duplicate proposal patterns`;
+    if (sampleTitle) {
+      desc += ` ("${sampleTitle}")`;
+    }
+    if (ticketAmount) {
+      desc += ` with uniform sanction sums of ${formatINR(ticketAmount)}`;
+    }
+    desc += ` (${percentage}% of all recorded works).`;
+    if (totalClusterVal) {
+      desc += ` This cluster represents ${formatCompactINR(totalClusterVal)} in flagged allocations requiring priority administrative review.`;
+    }
+
+    return {
+      hasAnomalies: true,
+      title: 'Audit Finding: High-Density Duplicate Work Proposal Cluster',
+      ruleBadge: 'DUPLICATE_WORK_PROPOSAL',
+      severity: 'HIGH',
+      description: desc,
+      metrics: [
+        `${count} Duplicate Proposals Flagged`,
+        ticketAmount ? `${formatCompactINR(ticketAmount)} Ticket Size` : `${count} Affected Works`,
+        `${percentage}% Anomaly Rate`,
+        totalClusterVal ? `${formatCompactINR(totalClusterVal)} Flagged Value` : null,
+      ].filter(Boolean) as string[],
+    };
+  }
+
+  if (primaryRule === 'PROJECT_CHRONIC_DELAY') {
+    const sampleDesc = primaryAnomalies[0]?.description || '';
+    const desc = `${count} project(s) registered under MP ${dashboard.name} (${dashboard.constituency || 'Constituency'}, ${dashboard.state || 'State'}) exhibit chronic execution delays, remaining stalled in recommended or pending status significantly beyond scheme delivery benchmark timelines.${sampleDesc ? ` Example: ${sampleDesc}.` : ''}`;
+
+    return {
+      hasAnomalies: true,
+      title: 'Audit Finding: Chronic Project Execution Delays',
+      ruleBadge: 'PROJECT_CHRONIC_DELAY',
+      severity: 'MEDIUM',
+      description: desc,
+      metrics: [
+        `${count} Chronic Delay Flags`,
+        `${percentage}% Delayed Project Rate`,
+        dashboard.completionRate != null
+          ? `${Number(dashboard.completionRate).toFixed(1)}% Scheme Completion`
+          : 'Delayed Status',
+        dashboard.unspentAmount ? `${formatCompactINR(dashboard.unspentAmount)} Unspent Fund` : null,
+      ].filter(Boolean) as string[],
+    };
+  }
+
+  if (primaryRule === 'SUSPICIOUS_UNIFORM_ALLOCATION') {
+    let ticketAmount: number | null = null;
+    for (const a of primaryAnomalies) {
+      const match = a.description?.match(/₹\s*([0-9.]+)/);
+      if (match) {
+        ticketAmount = parseFloat(match[1]);
+        break;
+      }
+    }
+    const desc = `${count} work proposal(s) registered under MP ${dashboard.name} (${dashboard.constituency || 'Constituency'}, ${dashboard.state || 'State'}) share identical uniform non-standard financial allocations${ticketAmount ? ` of ${formatINR(ticketAmount)}` : ''}, triggering algorithmic risk indicators for tender splitting or repetitive budget sizing.`;
+
+    return {
+      hasAnomalies: true,
+      title: 'Audit Finding: Suspicious Uniform Fund Allocation Cluster',
+      ruleBadge: 'SUSPICIOUS_UNIFORM_ALLOCATION',
+      severity: 'MEDIUM',
+      description: desc,
+      metrics: [
+        `${count} Uniform Allocations Flagged`,
+        ticketAmount ? `${formatCompactINR(ticketAmount)} Ticket Size` : 'Uniform Sums',
+        `${percentage}% Anomaly Share`,
+      ].filter(Boolean) as string[],
+    };
+  }
+
+  return {
+    hasAnomalies: true,
+    title: `Audit Finding: ${getRuleName(primaryRule)} Pattern Detected`,
+    ruleBadge: primaryRule,
+    severity: (primaryAnomalies[0]?.severity as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW') || 'MEDIUM',
+    description: `${count} work(s) registered under MP ${dashboard.name} (${dashboard.constituency || 'Constituency'}, ${dashboard.state || 'State'}) have been flagged under algorithmic rule '${getRuleName(primaryRule)}'. ${primaryAnomalies[0]?.description || ''}`,
+    metrics: [
+      `${count} Flags Detected`,
+      `${percentage}% Anomaly Rate`,
+    ],
+  };
+}
+
 export const MPProfilePage: React.FC = () => {
   const { selectedMpId, navigateTo, userSession, takeReviewAction, getProjectReviewStatus } = useApp();
 
-  const [mpId, setMpId] = useState<number>(selectedMpId || FEATURED_MP_ID);
+  const [mpId, setMpId] = useState<number>(selectedMpId || 191);
   const [dashboard, setDashboard] = useState<MPDashboardData | null>(null);
+  const [anomalies, setAnomalies] = useState<AnomalyItem[]>([]);
   const [projects, setProjects] = useState<FlaggedProjectItem[]>([]);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [loadingAnomalies, setLoadingAnomalies] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,14 +218,27 @@ export const MPProfilePage: React.FC = () => {
     }
   };
 
+  // Load Anomalies for this MP
+  const loadAnomalies = async (targetId: number) => {
+    setLoadingAnomalies(true);
+    try {
+      const items = await api.getMPAnomalies(targetId);
+      setAnomalies(items || []);
+    } catch {
+      setAnomalies([]);
+    } finally {
+      setLoadingAnomalies(false);
+    }
+  };
+
   // Load Projects
   const loadProjects = async (targetId: number, page: number, sort: string) => {
     setLoadingProjects(true);
     try {
       const response = await api.getMPProjects(targetId, page, pageSize, sort);
-      setProjects(response.items);
-      setTotalElements(response.totalElements);
-      setTotalPages(response.totalPages);
+      setProjects(response.items || []);
+      setTotalElements(response.totalElements || 0);
+      setTotalPages(response.totalPages || 1);
     } catch {
       setProjects([]);
     } finally {
@@ -79,12 +246,31 @@ export const MPProfilePage: React.FC = () => {
     }
   };
 
+  // When MP ID changes, clear stale data immediately and load fresh MP data
   useEffect(() => {
     const target = selectedMpId || 191;
     setMpId(target);
+    setDashboard(null);
+    setAnomalies([]);
+    setProjects([]);
+    setError(null);
+    setCurrentPage(0);
+
     loadDashboard(target);
+    loadAnomalies(target);
+  }, [selectedMpId]);
+
+  // Load projects on page or sort change
+  useEffect(() => {
+    const target = selectedMpId || 191;
     loadProjects(target, currentPage, sortBy);
   }, [selectedMpId, currentPage, sortBy]);
+
+  // Compute dynamic audit finding based on actual API data
+  const auditFinding = useMemo(() => {
+    if (!dashboard) return null;
+    return generateAuditFinding(dashboard, anomalies, projects);
+  }, [dashboard, anomalies, projects]);
 
   // Client-side filtering on current page projects if filter chips are used
   const filteredProjects = projects.filter((item) => {
@@ -114,13 +300,18 @@ export const MPProfilePage: React.FC = () => {
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 overflow-x-hidden">
       {/* Back Button & Navigation context */}
       <div className="flex items-center justify-between gap-3">
-        <button
-          onClick={() => navigateTo('mp-directory')}
-          className="min-h-[44px] inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-xs hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to MP Directory</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => navigateTo('mp-directory')}
+            className="min-h-[44px] inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-xs hover:bg-slate-50 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to MP Directory</span>
+          </button>
+          <span className="hidden sm:inline-flex items-center text-xs font-semibold text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-xs">
+            Prativedak MP Audit Dossier
+          </span>
+        </div>
 
         <div className="flex items-center space-x-2">
           <button
@@ -181,12 +372,15 @@ export const MPProfilePage: React.FC = () => {
                       <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                         {dashboard.name}
                       </h1>
-                      {(dashboard.id === FEATURED_MP_ID ||
-                        dashboard.name?.toLowerCase().includes('narayan') ||
-                        dashboard.constituency?.toLowerCase() === 'jalaun') && (
+                      {dashboard.totalAnomalies > 0 || anomalies.length > 0 ? (
                         <span className="bg-orange-100 text-orange-900 text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold border border-orange-200 flex items-center gap-1">
                           <Flame className="w-3.5 h-3.5 text-orange-600" />
-                          <span>Prime Case Study • DUPLICATE_WORK_PROPOSAL</span>
+                          <span>Flagged Audit Profile • {auditFinding?.ruleBadge || 'ANOMALY_FLAGGED'}</span>
+                        </span>
+                      ) : (
+                        <span className="bg-emerald-100 text-emerald-900 text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Clean Audit Record</span>
                         </span>
                       )}
                     </div>
@@ -341,41 +535,68 @@ export const MPProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Prime Case Study Spotlight Banner if viewing Narayan Das Ahirwar */}
-            {(dashboard.id === FEATURED_MP_ID ||
-              dashboard.name?.toLowerCase().includes('narayan') ||
-              dashboard.constituency?.toLowerCase() === 'jalaun') && (
-              <div className="bg-orange-50/90 border-2 border-orange-300/80 rounded-2xl p-4 sm:p-6 space-y-3 shadow-xs">
+            {/* Dynamic Audit Finding / Case Study Section */}
+            {loadingDashboard || loadingAnomalies ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-3 animate-pulse">
+                <div className="h-5 bg-slate-200 rounded w-1/3"></div>
+                <div className="h-4 bg-slate-100 rounded w-5/6"></div>
+                <div className="flex gap-2 pt-1">
+                  <div className="h-6 w-24 bg-slate-200 rounded"></div>
+                  <div className="h-6 w-24 bg-slate-200 rounded"></div>
+                </div>
+              </div>
+            ) : auditFinding ? (
+              <div
+                className={`rounded-2xl p-4 sm:p-6 space-y-3 shadow-xs border-2 ${
+                  auditFinding.hasAnomalies
+                    ? 'bg-orange-50/90 border-orange-300/80'
+                    : 'bg-emerald-50/80 border-emerald-300/80'
+                }`}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center space-x-2">
-                    <Flame className="w-5 h-5 text-orange-600 shrink-0" />
-                    <h3 className="font-extrabold text-orange-950 text-sm sm:text-base">
-                      Audit Finding: High-Density Duplicate Work Proposal Cluster
+                    {auditFinding.hasAnomalies ? (
+                      <Flame className="w-5 h-5 text-orange-600 shrink-0" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    )}
+                    <h3
+                      className={`font-extrabold text-sm sm:text-base ${
+                        auditFinding.hasAnomalies ? 'text-orange-950' : 'text-emerald-950'
+                      }`}
+                    >
+                      {auditFinding.title}
                     </h3>
                   </div>
-                  <span className="bg-orange-200 text-orange-950 text-xs px-2.5 py-0.5 rounded-full font-bold self-start sm:self-auto">
-                    DUPLICATE_WORK_PROPOSAL
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold self-start sm:self-auto font-mono ${
+                      auditFinding.hasAnomalies
+                        ? 'bg-orange-200 text-orange-950'
+                        : 'bg-emerald-200 text-emerald-950'
+                    }`}
+                  >
+                    {auditFinding.ruleBadge}
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                  <strong>85 out of 86 projects</strong> registered under MP <strong>{dashboard.name}</strong> ({dashboard.constituency}, {dashboard.state})
-                  share the exact same work description (<code className="bg-orange-100 text-orange-900 px-1.5 py-0.5 rounded font-mono font-semibold">MS Pole with LED semi High Mast Light</code>)
-                  and the exact uniform sanction sum of <strong className="text-orange-950 font-mono">₹2,60,000.00</strong> across various wards in Jalaun.
-                  This represents a ₹2.21+ Crore cluster flagged for priority administrative review.
+                  {auditFinding.description}
                 </p>
                 <div className="pt-1 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="bg-white px-2.5 py-1 rounded-md border border-orange-200 font-semibold text-orange-900">
-                    85 Duplicate Proposals Flagged
-                  </span>
-                  <span className="bg-white px-2.5 py-1 rounded-md border border-orange-200 font-semibold text-orange-900">
-                    ₹2,60,000 Ticket Size
-                  </span>
-                  <span className="bg-white px-2.5 py-1 rounded-md border border-orange-200 font-semibold text-orange-900">
-                    98.8% Anomaly Rate
-                  </span>
+                  {auditFinding.metrics.map((metric, idx) => (
+                    <span
+                      key={idx}
+                      className={`bg-white px-2.5 py-1 rounded-md border font-semibold ${
+                        auditFinding.hasAnomalies
+                          ? 'border-orange-200 text-orange-900'
+                          : 'border-emerald-200 text-emerald-900'
+                      }`}
+                    >
+                      {metric}
+                    </span>
+                  ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Projects & Anomaly Flags Section */}
             <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-6">

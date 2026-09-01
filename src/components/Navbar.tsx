@@ -66,10 +66,14 @@ export const Navbar: React.FC = () => {
       <div className="bg-slate-900 text-slate-300 text-xs px-3 sm:px-4 py-1.5 flex justify-between items-center">
         <div className="flex items-center space-x-2 truncate">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-          <span className="font-medium text-slate-200 truncate text-[11px] sm:text-xs">
+          <span className="font-semibold text-white tracking-wide text-[11px] sm:text-xs">
+            Prativedak
+          </span>
+          <span className="text-slate-500">•</span>
+          <span className="font-medium text-slate-300 truncate text-[11px] sm:text-xs">
             MPLADS Algorithmic Anomaly Register
           </span>
-          <span className="hidden sm:inline text-slate-400">|</span>
+          <span className="hidden sm:inline text-slate-500">|</span>
           <span className="hidden sm:inline text-slate-400">
             MoSPI Transparency
           </span>
@@ -95,14 +99,11 @@ export const Navbar: React.FC = () => {
             <div>
               <div className="flex items-center space-x-1">
                 <span className="font-bold text-base sm:text-lg text-slate-900 tracking-tight">
-                  MPLADS
-                </span>
-                <span className="font-medium text-base sm:text-lg text-blue-700">
-                  Audit
+                  Prativedak
                 </span>
               </div>
               <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium tracking-wide hidden xs:block">
-                Anomaly Register
+                MPLADS Anomaly Register
               </p>
             </div>
           </div>

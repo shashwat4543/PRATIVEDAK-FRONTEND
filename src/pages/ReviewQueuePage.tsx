@@ -90,7 +90,7 @@ export const ReviewQueuePage: React.FC = () => {
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
             <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
-              Authority Triage Desk
+              Prativedak Authority Triage Desk
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">

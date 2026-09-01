@@ -180,7 +180,7 @@ export const StateExplorerPage: React.FC = () => {
           <div className="flex items-center space-x-2">
             <MapPin className="w-4 h-4 text-blue-600" />
             <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
-              State-Level Aggregation
+              Prativedak State Aggregation
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">

@@ -80,9 +80,12 @@ export const MockLoginPage: React.FC = () => {
             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-xs flex items-center justify-center mx-auto mb-3 border border-white/20">
               <ShieldCheck className="w-7 h-7 text-amber-400" />
             </div>
+            <div className="text-[11px] uppercase tracking-widest text-blue-300 font-bold mb-1">
+              Prativedak Access Portal
+            </div>
             <h2 className="text-xl font-bold tracking-tight">Official Role-Based Login</h2>
             <p className="text-xs text-blue-200 mt-1">
-              Select an administrative role to test authority triage and oversight features.
+              Select an administrative role to test authority triage and oversight features in Prativedak.
             </p>
           </div>
 
@@ -282,7 +285,7 @@ export const MockLoginPage: React.FC = () => {
             <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1">
               <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>
-                Demo login — role-based views only, not connected to real authentication.
+                Demo login for Prativedak — role-based views only, not connected to real authentication.
               </span>
             </p>
           </div>

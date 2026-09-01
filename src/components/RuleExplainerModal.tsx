@@ -27,10 +27,10 @@ export const RuleExplainerModal: React.FC<RuleExplainerModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                MPLADS Algorithmic Detection Rules &amp; Audit Specs
+                Prativedak Algorithmic Detection Rules &amp; Audit Specs
               </h2>
               <p className="text-xs text-slate-500">
-                Rule definitions, trigger conditions, and national dataset coverage
+                Rule definitions, trigger conditions, and national dataset coverage in Prativedak
               </p>
             </div>
           </div>
