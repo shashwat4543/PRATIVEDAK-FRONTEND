@@ -296,7 +296,7 @@ export const api = {
   async getGlobalAnomalies(
     page = 0,
     size = 20,
-    filters?: { severity?: string; ruleCode?: string; query?: string }
+    filters?: { severity?: string; ruleCode?: string }
   ): Promise<{ items: AnomalyItem[]; totalElements: number; totalPages: number }> {
     const params = new URLSearchParams();
     params.append('page', String(page));
@@ -321,14 +321,6 @@ export const api = {
       filters.ruleCode.trim() !== ''
     ) {
       params.append('ruleCode', filters.ruleCode.trim());
-    }
-
-    if (
-      filters?.query &&
-      filters.query !== 'null' &&
-      filters.query.trim() !== ''
-    ) {
-      params.append('q', filters.query.trim());
     }
 
     const queryString = params.toString();

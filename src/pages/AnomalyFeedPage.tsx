@@ -39,16 +39,13 @@ export const AnomalyFeedPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Cleanly pass active filters if any (no empty strings, 'ALL', or 'null')
-      const activeFilters: { severity?: string; ruleCode?: string; query?: string } = {};
+      // Pass server-supported filter parameters: severity and ruleCode
+      const activeFilters: { severity?: string; ruleCode?: string } = {};
       if (severityFilter && severityFilter !== 'ALL' && severityFilter !== 'null' && severityFilter.trim() !== '') {
         activeFilters.severity = severityFilter.trim();
       }
       if (ruleFilter && ruleFilter !== 'ALL' && ruleFilter !== 'null' && ruleFilter.trim() !== '') {
         activeFilters.ruleCode = ruleFilter.trim();
-      }
-      if (searchQuery && searchQuery.trim() !== '' && searchQuery !== 'null') {
-        activeFilters.query = searchQuery.trim();
       }
 
       const response = await api.getGlobalAnomalies(currentPage, pageSize, activeFilters);
@@ -66,18 +63,8 @@ export const AnomalyFeedPage: React.FC = () => {
     loadAnomalies();
   }, [currentPage, severityFilter, ruleFilter]);
 
-  // Client-side filtering across the items for instant text search
+  // Client-side text filter strictly across the loaded page items
   const filteredAnomalies = anomalies.filter((a) => {
-    if (severityFilter && severityFilter !== 'ALL' && severityFilter !== 'null') {
-      if (a.severity?.toUpperCase() !== severityFilter.toUpperCase()) {
-        return false;
-      }
-    }
-    if (ruleFilter && ruleFilter !== 'ALL' && ruleFilter !== 'null') {
-      if (a.ruleCode !== ruleFilter) {
-        return false;
-      }
-    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const descMatch = a.description?.toLowerCase().includes(q);
@@ -135,7 +122,7 @@ export const AnomalyFeedPage: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search anomalies by description, MP ID or Project ID..."
+            placeholder="Filter loaded anomalies on this page (MP ID, Project ID, description)..."
             className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           />
         </div>
