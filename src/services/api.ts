@@ -6,17 +6,83 @@ import {
   AnomalyItem,
   PaginatedResponse,
 } from '../types';
-import {
-  FEATURED_MP_ID,
-  FEATURED_MP_NAME,
-  FEATURED_MP_CONSTITUENCY,
-  FEATURED_MP_STATE,
-  FEATURED_MP_DASHBOARD,
-  FEATURED_MP_PROJECTS,
-  FEATURED_MP_LIST_ITEM,
-} from '../data/featuredCaseStudyData';
 
 export const API_BASE_URL = 'https://mplads-fraud-detection-api.onrender.com';
+
+let sessionFeaturedMpId: number | null = null;
+
+/**
+ * Dynamically resolves the MP ID for the featured case study (Narayan Das Ahirwar)
+ * at runtime via GET /api/mps/search?q=narayan das ahirwar.
+ * Caches the resolved ID for the session to prevent redundant network requests.
+ * Returns null if no matching record is found or the service is unreachable.
+ */
+export async function resolveFeaturedMPId(): Promise<number | null> {
+  if (sessionFeaturedMpId !== null) {
+    return sessionFeaturedMpId;
+  }
+
+  // Check sessionStorage for cached ID in this browser session
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const stored = window.sessionStorage.getItem('prativedak_featured_mp_id');
+      if (stored) {
+        const parsed = parseInt(stored, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          sessionFeaturedMpId = parsed;
+          return parsed;
+        }
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+  }
+
+  try {
+    // Dynamic runtime lookup by name
+    const data = await fetchWithColdStartCheck<MPListItem[] | PaginatedResponse<MPListItem>>(
+      `${API_BASE_URL}/api/mps/search?q=${encodeURIComponent('narayan das ahirwar')}`
+    );
+    const results: MPListItem[] = Array.isArray(data) ? data : data?.content || data?.items || [];
+
+    // Match Narayan Das Ahirwar
+    let matched = results.find(
+      (m) =>
+        m.name?.toLowerCase().includes('narayan') &&
+        (m.name?.toLowerCase().includes('ahirwar') || m.constituency?.toLowerCase().includes('jalaun'))
+    );
+
+    // If not matched directly, check first result if present
+    if (!matched && results.length > 0) {
+      matched = results[0];
+    }
+
+    // Secondary fallback search if spelling varied slightly: search "jalaun"
+    if (!matched) {
+      const jalaunData = await fetchWithColdStartCheck<MPListItem[] | PaginatedResponse<MPListItem>>(
+        `${API_BASE_URL}/api/mps/search?q=jalaun`
+      );
+      const jalaunResults: MPListItem[] = Array.isArray(jalaunData) ? jalaunData : jalaunData?.content || jalaunData?.items || [];
+      matched = jalaunResults.find((m) => m.constituency?.toLowerCase().includes('jalaun'));
+    }
+
+    if (matched && typeof matched.id === 'number') {
+      sessionFeaturedMpId = matched.id;
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          window.sessionStorage.setItem('prativedak_featured_mp_id', String(matched.id));
+        } catch {
+          // ignore storage quota errors
+        }
+      }
+      return matched.id;
+    }
+  } catch (err) {
+    console.error('Failed to dynamically resolve featured MP ID:', err);
+  }
+
+  return null;
+}
 
 type ColdStartListener = (isWakingUp: boolean) => void;
 const coldStartListeners: Set<ColdStartListener> = new Set();
@@ -125,17 +191,6 @@ export const api = {
       result = [];
     }
 
-    // Check if query matches featured case study MP
-    const qLower = trimmed.toLowerCase();
-    const matchesFeatured =
-      FEATURED_MP_NAME.toLowerCase().includes(qLower) ||
-      FEATURED_MP_CONSTITUENCY.toLowerCase().includes(qLower) ||
-      FEATURED_MP_STATE.toLowerCase().includes(qLower);
-
-    if (matchesFeatured && !result.some((mp) => mp.id === FEATURED_MP_ID)) {
-      result = [FEATURED_MP_LIST_ITEM, ...result];
-    }
-
     setCache(cacheKey, result);
     return result;
   },
@@ -164,13 +219,7 @@ export const api = {
         totalPages = data.totalPages ?? (Math.ceil(totalElements / size) || 1);
       }
     } catch {
-      // Fallback
-    }
-
-    if (items.length === 0 && page === 0) {
-      items = [FEATURED_MP_LIST_ITEM];
-      totalElements = 1;
-      totalPages = 1;
+      // Return empty if API failed
     }
 
     const formatted = { items, totalElements, totalPages };
@@ -183,25 +232,12 @@ export const api = {
     const cached = getCached<MPDashboardData>(cacheKey);
     if (cached) return cached;
 
-    try {
-      const data = await fetchWithColdStartCheck<MPDashboardData>(
-        `${API_BASE_URL}/api/mps/${mpId}/dashboard`
-      );
-      if (data && data.name) {
-        setCache(cacheKey, data);
-        return data;
-      }
-    } catch {
-      // If server is cold-starting or mpId is the featured case study, use verified case study data
-      if (mpId === FEATURED_MP_ID) {
-        setCache(cacheKey, FEATURED_MP_DASHBOARD);
-        return FEATURED_MP_DASHBOARD;
-      }
-    }
-
-    if (mpId === FEATURED_MP_ID) {
-      setCache(cacheKey, FEATURED_MP_DASHBOARD);
-      return FEATURED_MP_DASHBOARD;
+    const data = await fetchWithColdStartCheck<MPDashboardData>(
+      `${API_BASE_URL}/api/mps/${mpId}/dashboard`
+    );
+    if (data && data.name) {
+      setCache(cacheKey, data);
+      return data;
     }
 
     throw new Error(`Failed to load MP Dashboard for ID #${mpId}`);
@@ -236,43 +272,12 @@ export const api = {
         totalPages = data.totalPages ?? (Math.ceil(totalElements / size) || 1);
       }
 
-      if (items.length > 0 || mpId !== FEATURED_MP_ID) {
-        const formatted = { items, totalElements, totalPages };
-        setCache(cacheKey, formatted);
-        return formatted;
-      }
-    } catch {
-      // Fallback for featured case study
-    }
-
-    if (mpId === FEATURED_MP_ID) {
-      let allProjects = [...FEATURED_MP_PROJECTS];
-      if (sortBy === 'sanctionedAmount') {
-        allProjects.sort((a, b) => {
-          const valB = Number(b.project?.sanctionedAmount ?? 0);
-          const valA = Number(a.project?.sanctionedAmount ?? 0);
-          return valB - valA;
-        });
-      } else if (sortBy === 'expenditureAmount') {
-        allProjects.sort((a, b) => {
-          const valB = Number(b.project?.expenditureAmount ?? 0);
-          const valA = Number(a.project?.expenditureAmount ?? 0);
-          return valB - valA;
-        });
-      }
-      const start = page * size;
-      const paginated = allProjects.slice(start, start + size);
-      const formatted = {
-        items: paginated,
-        totalElements: allProjects.length,
-        totalPages: Math.ceil(allProjects.length / size) || 1,
-      };
+      const formatted = { items, totalElements, totalPages };
       setCache(cacheKey, formatted);
       return formatted;
+    } catch {
+      return { items: [], totalElements: 0, totalPages: 0 };
     }
-
-    const empty = { items: [], totalElements: 0, totalPages: 0 };
-    return empty;
   },
 
   async getMPAnomalies(mpId: number): Promise<AnomalyItem[]> {
@@ -350,4 +355,6 @@ export const api = {
     setCache(cacheKey, formatted);
     return formatted;
   },
+
+  resolveFeaturedMPId,
 };

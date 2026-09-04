@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { api } from '../services/api';
+import { api, resolveFeaturedMPId } from '../services/api';
 import { DebugStats, MPListItem } from '../types';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { formatCompactINR, formatINR, getRuleName } from '../utils/formatters';
 import {
-  FEATURED_MP_ID,
   FEATURED_MP_NAME,
   FEATURED_MP_CONSTITUENCY,
   FEATURED_MP_STATE,
@@ -56,6 +55,15 @@ export const NationalDashboard: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenFeaturedMP = async () => {
+    const id = await resolveFeaturedMPId();
+    if (id) {
+      navigateTo('mp-profile', { mpId: id });
+    } else {
+      navigateTo('mp-directory');
     }
   };
 
@@ -426,7 +434,7 @@ export const NationalDashboard: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {/* Narayan Das Ahirwar pinned on top as prime case study */}
                   <tr
-                    onClick={() => navigateTo('mp-profile', { mpId: FEATURED_MP_ID })}
+                    onClick={handleOpenFeaturedMP}
                     className="hover:bg-orange-50/70 cursor-pointer bg-orange-50/30 transition-colors"
                   >
                     <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-1.5">
@@ -470,7 +478,7 @@ export const NationalDashboard: React.FC = () => {
             <div className="md:hidden space-y-3">
               {/* Narayan Das Ahirwar pinned featured card */}
               <div
-                onClick={() => navigateTo('mp-profile', { mpId: FEATURED_MP_ID })}
+                onClick={handleOpenFeaturedMP}
                 className="bg-orange-50/80 border border-orange-200 rounded-xl p-3.5 space-y-2 cursor-pointer"
               >
                 <div className="flex items-center justify-between">

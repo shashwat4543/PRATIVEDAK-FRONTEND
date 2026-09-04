@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { resolveFeaturedMPId } from './services/api';
 import { Navbar } from './components/Navbar';
 import { ColdStartNotice } from './components/ColdStartNotice';
 import { ToastContainer } from './components/ToastContainer';
@@ -132,7 +133,14 @@ const AppContent: React.FC = () => {
               <ul className="space-y-1.5 text-xs">
                 <li>
                   <button
-                    onClick={() => navigateTo('mp-profile', { mpId: 286 })}
+                    onClick={async () => {
+                      const id = await resolveFeaturedMPId();
+                      if (id) {
+                        navigateTo('mp-profile', { mpId: id });
+                      } else {
+                        navigateTo('mp-directory');
+                      }
+                    }}
                     className="hover:text-white transition-colors text-blue-400"
                   >
                     Case Study: Narayan Das Ahirwar (Jalaun)

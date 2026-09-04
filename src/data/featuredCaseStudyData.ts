@@ -1,13 +1,18 @@
 import { FlaggedProjectItem, MPDashboardData, MPListItem } from '../types';
 
-export const FEATURED_MP_ID = 286;
+/**
+ * @deprecated Do NOT reference hardcoded numeric IDs in application components or API requests.
+ * Database re-imports reassign MP IDs (e.g. 286 changed to 327 upon migration to PostgreSQL).
+ * Always use `resolveFeaturedMPId()` from `src/services/api.ts` for runtime lookup by name.
+ */
+export const FEATURED_MP_ID = 327;
 export const FEATURED_MP_NAME = 'Narayan Das Ahirwar';
 export const FEATURED_MP_CONSTITUENCY = 'Jalaun';
 export const FEATURED_MP_STATE = 'Uttar Pradesh';
 export const FEATURED_MP_HOUSE = 'Lok Sabha';
 export const FEATURED_MP_PARTY = 'Samajwadi Party';
 export const FEATURED_WORK_DESC = 'MS Pole with LED semi High Mast Light';
-export const FEATURED_WORK_AMOUNT = 260000; // ₹2,60,000
+export const FEATURED_WORK_AMOUNT = 238871.64; // Real API ticket sum (₹2,38,871.64)
 
 export const FEATURED_MP_SUMMARY = {
   id: FEATURED_MP_ID,

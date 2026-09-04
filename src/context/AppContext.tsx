@@ -5,8 +5,7 @@ import {
   UserRole,
   UserSession,
 } from '../types';
-import { FEATURED_MP_ID } from '../data/featuredCaseStudyData';
-import { subscribeColdStart } from '../services/api';
+import { resolveFeaturedMPId, subscribeColdStart } from '../services/api';
 
 export type AppView =
   | 'landing'
@@ -52,12 +51,21 @@ const DEFAULT_SESSION: UserSession = {
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentView, setCurrentView] = useState<AppView>('landing');
-  const [selectedMpId, setSelectedMpId] = useState<number | null>(FEATURED_MP_ID); // Default to Narayan Das Ahirwar (ID 286, Jalaun) as prime case study demonstrating DUPLICATE_WORK_PROPOSAL
+  const [selectedMpId, setSelectedMpId] = useState<number | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [userSession, setUserSession] = useState<UserSession>(DEFAULT_SESSION);
   const [isWakingUp, setIsWakingUp] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [reviewActions, setReviewActions] = useState<Record<number, ProjectReviewAction>>({});
+
+  useEffect(() => {
+    // Dynamically resolve prime case study MP ID on session init
+    resolveFeaturedMPId().then((id) => {
+      if (id) {
+        setSelectedMpId((prev) => (prev === null ? id : prev));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeColdStart((wakingUp) => {

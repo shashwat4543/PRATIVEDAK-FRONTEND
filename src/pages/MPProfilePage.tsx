@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { api } from '../services/api';
+import { api, resolveFeaturedMPId } from '../services/api';
 import {
   AnomalyItem,
   FlaggedProjectItem,
@@ -186,7 +186,7 @@ function generateAuditFinding(
 export const MPProfilePage: React.FC = () => {
   const { selectedMpId, navigateTo, userSession, takeReviewAction, getProjectReviewStatus } = useApp();
 
-  const [mpId, setMpId] = useState<number>(selectedMpId || 191);
+  const [mpId, setMpId] = useState<number | null>(selectedMpId);
   const [dashboard, setDashboard] = useState<MPDashboardData | null>(null);
   const [anomalies, setAnomalies] = useState<AnomalyItem[]>([]);
   const [projects, setProjects] = useState<FlaggedProjectItem[]>([]);
@@ -246,25 +246,57 @@ export const MPProfilePage: React.FC = () => {
     }
   };
 
-  // When MP ID changes, clear stale data immediately and load fresh MP data
+  // When MP ID changes or on mount, resolve target MP ID dynamically
   useEffect(() => {
-    const target = selectedMpId || 191;
-    setMpId(target);
-    setDashboard(null);
-    setAnomalies([]);
-    setProjects([]);
-    setError(null);
-    setCurrentPage(0);
+    let mounted = true;
+    const initTarget = async () => {
+      let target = selectedMpId;
+      if (!target) {
+        target = await resolveFeaturedMPId();
+      }
+      if (!target) {
+        try {
+          const list = await api.getMPs(0, 1);
+          if (list.items.length > 0) {
+            target = list.items[0].id;
+          }
+        } catch {
+          // ignore
+        }
+      }
 
-    loadDashboard(target);
-    loadAnomalies(target);
+      if (!mounted) return;
+
+      if (target) {
+        setMpId(target);
+        setDashboard(null);
+        setAnomalies([]);
+        setProjects([]);
+        setError(null);
+        setCurrentPage(0);
+
+        loadDashboard(target);
+        loadAnomalies(target);
+      } else {
+        setError('No Member of Parliament record found.');
+        setLoadingDashboard(false);
+        setLoadingAnomalies(false);
+        setLoadingProjects(false);
+      }
+    };
+
+    initTarget();
+    return () => {
+      mounted = false;
+    };
   }, [selectedMpId]);
 
   // Load projects on page or sort change
   useEffect(() => {
-    const target = selectedMpId || 191;
-    loadProjects(target, currentPage, sortBy);
-  }, [selectedMpId, currentPage, sortBy]);
+    if (mpId) {
+      loadProjects(mpId, currentPage, sortBy);
+    }
+  }, [mpId, currentPage, sortBy]);
 
   // Compute dynamic audit finding based on actual API data
   const auditFinding = useMemo(() => {
@@ -316,8 +348,10 @@ export const MPProfilePage: React.FC = () => {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => {
-              loadDashboard(mpId);
-              loadProjects(mpId, currentPage, sortBy);
+              if (mpId) {
+                loadDashboard(mpId);
+                loadProjects(mpId, currentPage, sortBy);
+              }
             }}
             className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2.5 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 shadow-xs"
             title="Refresh record"
@@ -344,7 +378,9 @@ export const MPProfilePage: React.FC = () => {
           <h3 className="text-sm font-bold text-red-900">Failed to load MP Profile</h3>
           <p className="text-xs text-red-700">{error}</p>
           <button
-            onClick={() => loadDashboard(mpId)}
+            onClick={() => {
+              if (mpId) loadDashboard(mpId);
+            }}
             className="min-h-[44px] px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg"
           >
             Retry Loading

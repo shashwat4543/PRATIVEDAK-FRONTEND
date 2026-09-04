@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { api } from '../services/api';
+import { api, resolveFeaturedMPId } from '../services/api';
 import { MPListItem } from '../types';
 import {
-  FEATURED_MP_ID,
   FEATURED_MP_NAME,
   FEATURED_MP_CONSTITUENCY,
   FEATURED_MP_STATE,
@@ -24,6 +23,15 @@ export const MPDirectoryPage: React.FC = () => {
   const [mps, setMps] = useState<MPListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleOpenFeaturedCaseStudy = async () => {
+    const id = await resolveFeaturedMPId();
+    if (id) {
+      navigateTo('mp-profile', { mpId: id });
+    } else {
+      setSearchQuery(FEATURED_MP_NAME);
+    }
+  };
 
   // Debounced search trigger: Only fire search if query length >= 2
   useEffect(() => {
@@ -129,7 +137,7 @@ export const MPDirectoryPage: React.FC = () => {
 
       {/* Featured Quick Case Study Banner */}
       <div
-        onClick={() => navigateTo('mp-profile', { mpId: FEATURED_MP_ID })}
+        onClick={handleOpenFeaturedCaseStudy}
         className="bg-orange-50/80 border border-orange-200 hover:border-orange-300 rounded-xl p-4 cursor-pointer transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group shadow-xs"
       >
         <div className="flex items-center space-x-3">

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { api } from '../services/api';
+import { api, resolveFeaturedMPId } from '../services/api';
 import { MPListItem, StateSummary } from '../types';
 import { formatCompactINR, formatINR } from '../utils/formatters';
 import {
-  FEATURED_MP_ID,
   FEATURED_MP_NAME,
   FEATURED_MP_CONSTITUENCY,
 } from '../data/featuredCaseStudyData';
@@ -68,6 +67,15 @@ export const StateExplorerPage: React.FC = () => {
   const [allMps, setAllMps] = useState<MPListItem[]>([]);
   const [stateAggregates, setStateAggregates] = useState<Record<string, StateSummary>>({});
   const [loading, setLoading] = useState(true);
+
+  const handleOpenFeaturedMP = async () => {
+    const id = await resolveFeaturedMPId();
+    if (id) {
+      navigateTo('mp-profile', { mpId: id });
+    } else {
+      navigateTo('mp-directory');
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -341,7 +349,7 @@ export const StateExplorerPage: React.FC = () => {
 
               {activeState === 'Uttar Pradesh' && (
                 <div
-                  onClick={() => navigateTo('mp-profile', { mpId: 286 })}
+                  onClick={handleOpenFeaturedMP}
                   className="mb-2 p-3 bg-orange-50/80 border border-orange-200 rounded-xl flex items-center justify-between cursor-pointer hover:bg-orange-100/80 transition-colors min-h-[44px]"
                 >
                   <div>
